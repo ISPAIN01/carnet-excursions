@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon Carnet d'Excursions</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root {
+  --bg: #f5f3ef; --surface: #ffffff; --surface2: #edeae4;
+  --border: #ddd9d0; --text: #1c1b18; --text2: #6b6760; --text3: #a09c96;
+  --accent: #c8522a; --accent-bg: #fdf0ea; --accent-light: #f0b99a; --radius: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.screen { display: none; min-height: 100vh; }
+.screen.active { display: block; }
+
+/* ACCUEIL */
+.home-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.app-title { font-size: 18px; font-weight: 600; color: var(--accent); }
+.btn-new { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.btn-new:hover { opacity: 0.88; }
+.home-body { padding: 1rem; max-width: 600px; margin: 0 auto; }
+.empty-state { text-align: center; padding: 4rem 2rem; color: var(--text3); }
+.empty-icon { font-size: 48px; margin-bottom: 1rem; }
+.empty-title { font-size: 17px; font-weight: 500; color: var(--text2); margin-bottom: 6px; }
+.empty-sub { font-size: 14px; line-height: 1.5; }
+.excursion-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 12px; overflow: hidden; cursor: pointer; }
+.excursion-card:hover { border-color: var(--accent-light); }
+.card-cover { width: 100%; height: 140px; background: var(--surface2); display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 13px; position: relative; }
+.card-cover img { width: 100%; height: 100%; object-fit: cover; }
+.card-cover-placeholder { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.card-type-badge { position: absolute; top: 8px; left: 8px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; background: rgba(0,0,0,0.45); color: white; }
+.card-body { padding: 12px 14px; }
+.card-title { font-size: 15px; font-weight: 600; margin-bottom: 3px; }
+.card-meta { font-size: 12px; color: var(--text3); display: flex; gap: 10px; align-items: center; }
+.card-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text3); }
+
+/* CRÉATION */
+.create-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+.btn-back { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--text2); cursor: pointer; }
+.btn-back:hover { background: var(--surface2); }
+.create-title-h { font-size: 16px; font-weight: 600; flex: 1; }
+.btn-save-main { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 7px 16px; font-size: 13px; font-weight: 500; cursor: pointer; }
+.create-body { padding: 1rem; max-width: 600px; margin: 0 auto; }
+.section-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; margin-top: 20px; }
+.field { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
+.field input, .field textarea { width: 100%; padding: 12px 14px; border: none; font-size: 14px; background: transparent; color: var(--text); font-family: inherit; outline: none; }
+.field textarea { height: 90px; resize: none; }
+.field-row { display: flex; }
+.field-row .field-half { flex: 1; }
+.field-row .field-half:first-child { border-right: 1px solid var(--border); }
+.field input::placeholder, .field textarea::placeholder { color: var(--text3); }
+.type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.type-option { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; cursor: pointer; font-size: 13px; color: var(--text2); }
+.type-option.selected { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); font-weight: 500; }
+.type-icon { font-size: 20px; margin-bottom: 4px; }
+
+/* ÉTAPES CRÉATION */
+.step-add-row { display: flex; gap: 8px; align-items: center; }
+.step-add-row input { flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--surface); color: var(--text); font-family: inherit; outline: none; }
+.step-add-row input:focus { border-color: var(--accent); }
+.btn-add-step { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-light); border-radius: 8px; padding: 10px 12px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.btn-gps { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 16px; cursor: pointer; flex-shrink: 0; }
+.btn-gps:hover { background: var(--accent-bg); border-color: var(--accent-light); }
+.btn-gps.loading { animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.steps-list-create { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.step-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; align-items: flex-start; gap: 10px; }
+.step-num-badge { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.step-item-content { flex: 1; min-width: 0; }
+.step-item-place { font-size: 13px; font-weight: 500; }
+.step-item-coords { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.step-photo-preview { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+.step-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; padding: 2px; }
+.step-del:hover { color: #c0392b; }
+.photo-upload-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 1.5rem; text-align: center; color: var(--text3); font-size: 13px; cursor: pointer; background: var(--surface); }
+.photo-upload-zone:hover { border-color: var(--accent-light); background: var(--accent-bg); }
+.upload-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.upload-thumb { width: 72px; height: 72px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border); }
+
+/* Toast géoloc */
+.geo-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: white; padding: 10px 18px; border-radius: 20px; font-size: 13px; z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+.geo-toast.show { opacity: 1; }
+
+/* DÉTAIL */
+.detail-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+.detail-title-h { font-size: 16px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn-book { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 500; cursor: pointer; }
+.detail-body { max-width: 600px; margin: 0 auto; padding-bottom: 2rem; }
+.detail-cover { width: 100%; height: 200px; background: var(--surface2); display: flex; align-items: center; justify-content: center; }
+.detail-cover img { width: 100%; height: 100%; object-fit: cover; }
+.detail-cover-placeholder { color: var(--text3); font-size: 32px; }
+.detail-info { padding: 1rem; }
+.detail-excursion-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.detail-badges { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+.badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; background: var(--surface2); color: var(--text2); }
+.badge-accent { background: var(--accent-bg); color: var(--accent); }
+.detail-desc { font-size: 14px; color: var(--text2); line-height: 1.6; margin-top: 8px; }
+.detail-section-title { font-size: 13px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; padding: 0 1rem; margin-top: 20px; margin-bottom: 10px; }
+.detail-map-wrap { padding: 0 1rem; }
+.detail-map { height: 240px; width: 100%; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+.detail-step { display: flex; gap: 12px; padding: 0 1rem 16px; }
+.step-line-wrap { display: flex; flex-direction: column; align-items: center; }
+.step-dot { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.step-vline { flex: 1; width: 2px; background: var(--border); margin-top: 6px; min-height: 20px; }
+.step-content { flex: 1; padding-bottom: 4px; }
+.step-place-name { font-size: 14px; font-weight: 600; }
+.step-note-text { font-size: 13px; color: var(--text2); margin-top: 3px; line-height: 1.5; }
+.step-coords-text { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.step-photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+.step-photo-grid img { width: 100%; height: 90px; object-fit: cover; border-radius: 8px; }
+.photos-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; padding: 0 1rem; }
+.photos-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; }
+
+/* LIVRE */
+.book-screen { background: var(--bg); min-height: 100vh; }
+.book-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+.book-body { max-width: 600px; margin: 0 auto; padding: 1rem; }
+.book-page { background: white; border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px; }
+.book-cover-page { padding: 2rem; text-align: center; background: var(--accent); color: white; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.book-cover-title { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+.book-cover-sub { font-size: 14px; opacity: 0.8; }
+.book-text-page { padding: 1.5rem; }
+.book-text-page h2 { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: var(--accent); }
+.book-text-page p { font-size: 14px; color: var(--text2); line-height: 1.7; }
+.book-step-block { padding: 1rem 1.5rem; border-top: 1px solid var(--border); }
+.book-step-num { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.book-step-place { font-size: 15px; font-weight: 600; margin: 2px 0; }
+.book-step-note { font-size: 13px; color: var(--text2); line-height: 1.6; }
+.book-photo-row { display: grid; grid-template-columns: 1fr 1fr; }
+.book-photo-row img { width: 100%; height: 160px; object-fit: cover; }
+.btn-print { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; }
+
+@media print {
+  .book-header { display: none !important; }
+  .screen { display: none !important; }
+  #screen-book { display: block !important; background: white; }
+  .book-page { break-inside: avoid; border: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="geo-toast" id="geo-toast"></div>
+
+<!-- ACCUEIL -->
+<div class="screen active" id="screen-home">
+  <div class="home-header">
+    <div class="app-title">📖 Mes Excursions</div>
+    <button class="btn-new" onclick="goCreate()">+ Nouvelle excursion</button>
+  </div>
+  <div class="home-body"><div id="excursions-list"></div></div>
+</div>
+
+<!-- CRÉATION -->
+<div class="screen" id="screen-create">
+  <div class="create-header">
+    <button class="btn-back" onclick="goHome()">← Retour</button>
+    <div class="create-title-h">Nouvelle excursion</div>
+    <button class="btn-save-main" onclick="saveExcursion()">Enregistrer</button>
+  </div>
+  <div class="create-body">
+    <div class="section-label">Type</div>
+    <div class="type-grid">
+      <div class="type-option selected" data-type="Journée" onclick="selectType(this)"><div class="type-icon">🌄</div>Sortie à la journée</div>
+      <div class="type-option" data-type="Week-end" onclick="selectType(this)"><div class="type-icon">🏕</div>Week-end</div>
+      <div class="type-option" data-type="Voyage" onclick="selectType(this)"><div class="type-icon">✈️</div>Voyage</div>
+      <div class="type-option" data-type="Randonnée" onclick="selectType(this)"><div class="type-icon">🥾</div>Randonnée</div>
+    </div>
+
+    <div class="section-label">Titre</div>
+    <div class="field"><input id="c-title" placeholder="ex. Gorges de l'Ardèche" /></div>
+
+    <div class="field-row" style="margin-top:8px;">
+      <div class="field field-half"><input id="c-date-start" type="date" /></div>
+      <div class="field field-half"><input id="c-date-end" type="date" /></div>
+    </div>
+
+    <div class="section-label">Description</div>
+    <div class="field"><textarea id="c-desc" placeholder="Décris cette excursion en quelques mots..."></textarea></div>
+
+    <div class="section-label">Étapes</div>
+    <div class="step-add-row">
+      <input id="step-input" placeholder="Nom du lieu" onkeydown="if(event.key==='Enter')addStepManual()" />
+      <button class="btn-add-step" onclick="addStepManual()">+ Ajouter</button>
+      <button class="btn-gps" id="btn-gps" onclick="addStepGPS()" title="Me localiser maintenant">📍</button>
+    </div>
+    <div class="steps-list-create" id="steps-list-create"></div>
+
+    <div class="section-label">Photo de couverture</div>
+    <div class="photo-upload-zone" onclick="document.getElementById('cover-input').click()">
+      <div style="font-size:24px;margin-bottom:6px;">🖼</div>
+      Appuie pour ajouter une photo de couverture
+    </div>
+    <input id="cover-input" type="file" accept="image/*" style="display:none" onchange="addCoverPhoto(event)" />
+    <div class="upload-preview" id="cover-previews"></div>
+    <div style="height:2rem;"></div>
+  </div>
+</div>
+
+<!-- DÉTAIL -->
+<div class="screen" id="screen-detail">
+  <div class="detail-header">
+    <button class="btn-back" onclick="goHome()">← Retour</button>
+    <div class="detail-title-h" id="d-header-title"></div>
+    <button class="btn-book" onclick="openBook()">📖 Livre</button>
+  </div>
+  <div class="detail-body">
+    <div class="detail-cover" id="d-cover"><div class="detail-cover-placeholder">🏔</div></div>
+    <div class="detail-info">
+      <div class="detail-badges" id="d-badges"></div>
+      <div class="detail-excursion-title" id="d-title"></div>
+      <div class="detail-desc" id="d-desc"></div>
+    </div>
+    <div id="d-map-section" style="display:none">
+      <div class="detail-section-title">Carte &amp; itinéraire</div>
+      <div class="detail-map-wrap"><div class="detail-map" id="d-map"></div></div>
+    </div>
+    <div id="d-steps-wrap"></div>
+    <div id="d-photos-wrap"></div>
+  </div>
+</div>
+
+<!-- LIVRE -->
+<div class="screen book-screen" id="screen-book">
+  <div class="book-header">
+    <button class="btn-back" onclick="closeBook()">← Retour</button>
+    <div style="flex:1;font-size:15px;font-weight:600;">Livre de l'excursion</div>
+    <button class="btn-print" onclick="window.print()">🖨 Imprimer</button>
+  </div>
+  <div class="book-body" id="book-content"></div>
+</div>
+
+<script>
+var excursions = [];
+var createSteps = [];
+var createCoverPhotos = [];
+var currentExcursion = null;
+var detailMap = null;
+var selectedType = 'Journée';
+
+function toast(msg, duration) {
+  var t = document.getElementById('geo-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, duration || 2500);
+}
+
+function selectType(el) {
+  document.querySelectorAll('.type-option').forEach(function(o) { o.classList.remove('selected'); });
+  el.classList.add('selected');
+  selectedType = el.dataset.type;
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+function goHome() {
+  if (detailMap) { detailMap.remove(); detailMap = null; }
+  showScreen('home');
+  renderHome();
+}
+
+function goCreate() {
+  createSteps = []; createCoverPhotos = []; selectedType = 'Journée';
+  document.getElementById('c-title').value = '';
+  document.getElementById('c-desc').value = '';
+  document.getElementById('c-date-start').value = '';
+  document.getElementById('c-date-end').value = '';
+  document.getElementById('steps-list-create').innerHTML = '';
+  document.getElementById('cover-previews').innerHTML = '';
+  document.querySelectorAll('.type-option').forEach(function(o, i) { o.classList.toggle('selected', i === 0); });
+  showScreen('create');
+}
+
+/* ── GPS ── */
+function addStepGPS() {
+  if (!navigator.geolocation) { toast('Géolocalisation non disponible sur ce navigateur'); return; }
+  var btn = document.getElementById('btn-gps');
+  btn.classList.add('loading');
+  btn.textContent = '⏳';
+  toast('Localisation en cours…', 5000);
+  navigator.geolocation.getCurrentPosition(
+    function(pos) {
+      btn.classList.remove('loading'); btn.textContent = '📍';
+      var lat = pos.coords.latitude;
+      var lng = pos.coords.longitude;
+      var label = document.getElementById('step-input').value.trim() || 'Position actuelle';
+      createSteps.push({ place: label, note: '', photo: null, lat: lat, lng: lng });
+      document.getElementById('step-input').value = '';
+      renderCreateSteps();
+      toast('📍 Étape ajoutée — ' + lat.toFixed(4) + ', ' + lng.toFixed(4));
+    },
+    function(err) {
+      btn.classList.remove('loading'); btn.textContent = '📍';
+      var msgs = { 1: 'Accès à la position refusé', 2: 'Position indisponible', 3: 'Délai dépassé' };
+      toast('⚠️ ' + (msgs[err.code] || 'Erreur de géolocalisation'));
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+function addStepManual() {
+  var val = document.getElementById('step-input').value.trim();
+  if (!val) { document.getElementById('step-input').focus(); return; }
+  createSteps.push({ place: val, note: '', photo: null, lat: null, lng: null });
+  document.getElementById('step-input').value = '';
+  renderCreateSteps();
+}
+
+function renderCreateSteps() {
+  var list = document.getElementById('steps-list-create');
+  list.innerHTML = '';
+  createSteps.forEach(function(s, i) {
+    var el = document.createElement('div');
+    el.className = 'step-item';
+    var coordsHtml = (s.lat && s.lng)
+      ? '<div class="step-item-coords">📍 ' + s.lat.toFixed(5) + ', ' + s.lng.toFixed(5) + '</div>'
+      : '';
+    el.innerHTML =
+      '<div class="step-num-badge">' + (i+1) + '</div>' +
+      '<div class="step-item-content">' +
+        '<div class="step-item-place">' + s.place + '</div>' +
+        coordsHtml +
+        '<input placeholder="Note (optionnel)" value="' + (s.note||'') + '" oninput="createSteps[' + i + '].note=this.value" style="font-size:12px;color:var(--text2);border:none;outline:none;background:transparent;width:100%;margin-top:4px;" />' +
+      '</div>' +
+      (s.photo ? '<img src="' + s.photo + '" class="step-photo-preview" />' : '') +
+      '<label style="cursor:pointer;font-size:18px;color:var(--text3);" title="Ajouter une photo">📷<input type="file" accept="image/*" style="display:none" onchange="addStepPhoto(event,' + i + ')" /></label>' +
+      '<button class="step-del" onclick="removeStep(' + i + ')">×</button>';
+    list.appendChild(el);
+  });
+}
+
+function addStepPhoto(e, idx) {
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) { createSteps[idx].photo = ev.target.result; renderCreateSteps(); };
+  reader.readAsDataURL(file);
+}
+
+function removeStep(i) { createSteps.splice(i, 1); renderCreateSteps(); }
+
+function addCoverPhoto(e) {
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    createCoverPhotos.push(ev.target.result);
+    var img = document.createElement('img');
+    img.className = 'upload-thumb'; img.src = ev.target.result;
+    document.getElementById('cover-previews').appendChild(img);
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveExcursion() {
+  var title = document.getElementById('c-title').value.trim();
+  if (!title) { document.getElementById('c-title').focus(); return; }
+  var ds = document.getElementById('c-date-start').value;
+  var de = document.getElementById('c-date-end').value;
+  var dateStr = ds ? new Date(ds).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric'}) : '';
+  if (de && de !== ds) dateStr += ' – ' + new Date(de).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric'});
+  excursions.unshift({
+    id: Date.now(), type: selectedType, title: title, date: dateStr,
+    desc: document.getElementById('c-desc').value.trim(),
+    steps: createSteps.slice(), photos: createCoverPhotos.slice()
+  });
+  goHome();
+}
+
+function renderHome() {
+  var list = document.getElementById('excursions-list');
+  if (!excursions.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">🗺</div><div class="empty-title">Aucune excursion pour l\'instant</div><div class="empty-sub">Crée ta première excursion<br>pour commencer ton carnet de voyage.</div></div>';
+    return;
+  }
+  list.innerHTML = '';
+  excursions.forEach(function(exc) {
+    var card = document.createElement('div');
+    card.className = 'excursion-card';
+    var cover = exc.photos.length
+      ? '<img src="' + exc.photos[0] + '" />'
+      : '<div class="card-cover-placeholder"><span style="font-size:28px;">🌄</span><span>' + exc.type + '</span></div>';
+    var geoCount = exc.steps.filter(function(s){return s.lat;}).length;
+    card.innerHTML =
+      '<div class="card-cover">' + cover + '<div class="card-type-badge">' + exc.type + '</div></div>' +
+      '<div class="card-body"><div class="card-title">' + exc.title + '</div>' +
+      '<div class="card-meta">' +
+        (exc.date ? '<span>' + exc.date + '</span>' : '') +
+        (exc.steps.length ? '<div class="card-dot"></div><span>' + exc.steps.length + ' étape' + (exc.steps.length>1?'s':'') + '</span>' : '') +
+        (geoCount ? '<div class="card-dot"></div><span>📍 ' + geoCount + ' géolocalisée' + (geoCount>1?'s':'') + '</span>' : '') +
+      '</div></div>';
+    card.onclick = function() { openDetail(exc.id); };
+    list.appendChild(card);
+  });
+}
+
+/* ── DÉTAIL ── */
+function openDetail(id) {
+  currentExcursion = excursions.find(function(e) { return e.id === id; });
+  if (!currentExcursion) return;
+  var exc = currentExcursion;
+
+  document.getElementById('d-header-title').textContent = exc.title;
+  document.getElementById('d-title').textContent = exc.title;
+  document.getElementById('d-desc').textContent = exc.desc || '';
+
+  var coverEl = document.getElementById('d-cover');
+  coverEl.innerHTML = exc.photos.length
+    ? '<img src="' + exc.photos[0] + '" />'
+    : '<div class="detail-cover-placeholder">🏔</div>';
+
+  var geoSteps = exc.steps.filter(function(s){return s.lat;});
+  document.getElementById('d-badges').innerHTML =
+    '<span class="badge badge-accent">' + exc.type + '</span>' +
+    (exc.date ? '<span class="badge">' + exc.date + '</span>' : '') +
+    (exc.steps.length ? '<span class="badge">' + exc.steps.length + ' étape' + (exc.steps.length>1?'s':'') + '</span>' : '') +
+    (geoSteps.length ? '<span class="badge">📍 ' + geoSteps.length + ' géolocalisée' + (geoSteps.length>1?'s':'') + '</span>' : '');
+
+  /* Carte */
+  if (detailMap) { detailMap.remove(); detailMap = null; }
+  var mapSection = document.getElementById('d-map-section');
+  if (geoSteps.length > 0) {
+    mapSection.style.display = 'block';
+    setTimeout(function() {
+      detailMap = L.map('d-map');
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 18 }).addTo(detailMap);
+      var bounds = [];
+      geoSteps.forEach(function(s, i) {
+        bounds.push([s.lat, s.lng]);
+        var icon = L.divIcon({
+          className: '',
+          html: '<div style="width:30px;height:30px;background:#c8522a;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;"><span style="transform:rotate(45deg);color:white;font-size:11px;font-weight:700;">' + (exc.steps.indexOf(s)+1) + '</span></div>',
+          iconSize: [30, 30], iconAnchor: [15, 30]
+        });
+        L.marker([s.lat, s.lng], { icon: icon }).addTo(detailMap)
+          .bindPopup('<b>' + s.place + '</b>' + (s.note ? '<br><span style="font-size:12px;color:#6b6760;">' + s.note + '</span>' : ''));
+      });
+      if (geoSteps.length > 1) {
+        var latlngs = geoSteps.map(function(s){return [s.lat, s.lng];});
+        L.polyline(latlngs, { color: '#c8522a', weight: 3, dashArray: '7, 7', opacity: 0.75 }).addTo(detailMap);
+      }
+      if (bounds.length === 1) detailMap.setView(bounds[0], 14);
+      else detailMap.fitBounds(bounds, { padding: [30, 30] });
+    }, 100);
+  } else {
+    mapSection.style.display = 'none';
+  }
+
+  /* Étapes */
+  var stepsWrap = document.getElementById('d-steps-wrap');
+  if (exc.steps.length) {
+    var html = '<div class="detail-section-title">Étapes</div>';
+    exc.steps.forEach(function(s, i) {
+      var isLast = i === exc.steps.length - 1;
+      html += '<div class="detail-step">' +
+        '<div class="step-line-wrap"><div class="step-dot">' + (i+1) + '</div>' + (!isLast ? '<div class="step-vline"></div>' : '') + '</div>' +
+        '<div class="step-content"><div class="step-place-name">' + s.place + '</div>' +
+        (s.lat ? '<div class="step-coords-text">📍 ' + s.lat.toFixed(5) + ', ' + s.lng.toFixed(5) + '</div>' : '') +
+        (s.note ? '<div class="step-note-text">' + s.note + '</div>' : '') +
+        (s.photo ? '<div class="step-photo-grid"><img src="' + s.photo + '" /></div>' : '') +
+        '</div></div>';
+    });
+    stepsWrap.innerHTML = html;
+  } else stepsWrap.innerHTML = '';
+
+  /* Photos */
+  var allPhotos = exc.photos.concat(exc.steps.filter(function(s){return s.photo;}).map(function(s){return s.photo;}));
+  var photosWrap = document.getElementById('d-photos-wrap');
+  if (allPhotos.length > 1) {
+    var pg = '<div class="detail-section-title">Photos</div><div class="photos-grid">';
+    allPhotos.forEach(function(p) { pg += '<img src="' + p + '" />'; });
+    photosWrap.innerHTML = pg + '</div>';
+  } else photosWrap.innerHTML = '';
+
+  showScreen('detail');
+}
+
+/* ── LIVRE ── */
+function openBook() {
+  if (!currentExcursion) return;
+  var exc = currentExcursion;
+  var allPhotos = exc.photos.concat(exc.steps.filter(function(s){return s.photo;}).map(function(s){return s.photo;}));
+  var html = '';
+
+  html += '<div class="book-page"><div class="book-cover-page"><div style="font-size:36px;margin-bottom:12px;">📖</div>' +
+    '<div class="book-cover-title">' + exc.title + '</div>' +
+    '<div class="book-cover-sub">' + (exc.date||'') + ' · ' + exc.type + '</div></div>';
+  if (exc.photos.length) html += '<img src="' + exc.photos[0] + '" style="width:100%;height:220px;object-fit:cover;" />';
+  html += '</div>';
+
+  if (exc.desc) html += '<div class="book-page"><div class="book-text-page"><h2>' + exc.title + '</h2><p>' + exc.desc + '</p></div></div>';
+
+  if (exc.steps.length) {
+    html += '<div class="book-page"><div class="book-text-page" style="padding-bottom:0;"><h2>Le récit</h2></div>';
+    exc.steps.forEach(function(s, i) {
+      html += '<div class="book-step-block"><div class="book-step-num">Étape ' + (i+1) + '</div>' +
+        '<div class="book-step-place">' + s.place + '</div>' +
+        (s.lat ? '<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">📍 ' + s.lat.toFixed(5) + ', ' + s.lng.toFixed(5) + '</div>' : '') +
+        (s.note ? '<div class="book-step-note">' + s.note + '</div>' : '') + '</div>';
+      if (s.photo) html += '<img src="' + s.photo + '" style="width:100%;height:180px;object-fit:cover;" />';
+    });
+    html += '</div>';
+  }
+
+  if (allPhotos.length >= 2) {
+    html += '<div class="book-page"><div class="book-text-page" style="padding-bottom:12px;"><h2>Galerie</h2></div>';
+    for (var i = 0; i < allPhotos.length; i += 2) {
+      html += '<div class="book-photo-row"><img src="' + allPhotos[i] + '" />';
+      html += allPhotos[i+1] ? '<img src="' + allPhotos[i+1] + '" />' : '<div style="background:var(--surface2);"></div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  document.getElementById('book-content').innerHTML = html;
+  showScreen('book');
+}
+
+function closeBook() { showScreen('detail'); }
+
+renderHome();
+</script>
+</body>
+</html>
